@@ -1,5 +1,6 @@
 # laravel-ImageHandler-trait
 
+This trait is dependence of Intervention Image
 
 # in Controller
 
