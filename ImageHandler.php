@@ -78,6 +78,15 @@ trait ImageHandler
 
 	public function deleteImage($filename = null)
 	{
+		$this->deleteMainImage($filename);
+		
+		if ($this->isUsingThumb()) {
+			$this->deleteThumbImage($filename);
+		}
+	}
+
+	public function deleteMainImage($filename = null)
+	{
 		$filename = $filename ?? $this->getThisImage();
 
         $location = public_path($this->getDir() . "/{$filename}");
