@@ -1,0 +1,1 @@
+# laravel-ImageHandler-trait
