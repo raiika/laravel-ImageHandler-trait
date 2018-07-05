@@ -35,3 +35,8 @@ These are all available config
         ],
         'name' => 'image'
     ]
+
+#  Renaming setAttribute method
+    use ImageHandler {
+		setImageAttribute as setUniqueAttribute;
+	}
