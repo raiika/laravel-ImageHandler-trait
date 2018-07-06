@@ -72,12 +72,14 @@ Implementing single or multi delete on eloquent
     
 Implementing multiple thumb image
 
-    [
-        'useThumb' => [   ['w' => 5,
-                           'h' => 10],
-                          ['w' => 10
-                           'h' => 20],
-                          ['w' => 20
-                           'h' => 40],]
-    ]
+    protected $imageHandler = [
+        'useThumb' => [   
+	    ['w' => 5,
+             'h' => 10],
+            ['w' => 10
+             'h' => 20],
+            ['w' => 20
+             'h' => 40],
+	 ]
+    ];
     
