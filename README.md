@@ -74,12 +74,12 @@ Implementing multiple thumb image
 
     protected $imageHandler = [
         'useThumb' => [   
-	    ['w' => 5,
+            ['w' => 5,
              'h' => 10],
             ['w' => 10
              'h' => 20],
             ['w' => 20
              'h' => 40],
-	 ]
+        ]
     ];
     
