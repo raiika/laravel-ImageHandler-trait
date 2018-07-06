@@ -4,11 +4,55 @@ namespace App\Traits;
 
 use Intervention\Image\ImageManager;
 use Illuminate\Support\Facades\File;
+use Illuminate\Http\Request;
+
+
+/*
+
+in Controller
+
+$model = new Model();
+$model->image = $request;
+
+*/
 
 trait ImageHandler
 {
+	/* ALL AVAILABLE CONFIG
+	protected $imageHandler = [
+		'dir' => 'images/sliders', 
+		'thumbFolder' => 'thumbs', 
+		'useThumb' => false, 
+		'dimension' => [
+			'w' => 500, 
+			'h' => 200
+		],
+		'thumbDimension' => [
+			'w' => 400, 
+			'h' => 200
+		],
+		'ratioVar' => [
+		 	'x' => 'x',
+		 	'y' => 'y',
+		 	'w' => 'w',
+		 	'h' => 'h',
+		],
+		'defaultRatio' => [
+		 	'x' => 0,
+		 	'y' => 0,
+		 	'w' => 500,
+		 	'h' => 500,
+		],
+		'name' => 'image'
+	]
+	*/
+
 	public function setImageAttribute($request)
 	{
+		if (is_file($request)) {
+			$request = new Request(['image' => $request]);
+		}
+
         $filename = $this->getFilename($request);
 
 		$this->createDir();
@@ -43,6 +87,13 @@ trait ImageHandler
 		
 		if ($this->isUsingThumb()) {
 			$this->deleteThumbImage($filename);
+		}
+	}
+
+	public function deleteBatchImage(array $array)
+	{
+		foreach ($array as $filename) {
+			$this->deleteImage($filename);
 		}
 	}
 
