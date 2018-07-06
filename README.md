@@ -41,3 +41,43 @@ These are all available config
     use ImageHandler {
 		setImageAttribute as setUniqueAttribute;
 	}
+
+#  Deleting Image
+
+in Controller
+    
+    //delete both main and thumb (if set)
+    $model->deleteImage();
+    
+    //delete only main
+    $model->deleteMainImage();
+    
+    //delete only thumb
+    $model->deleteThumbImage();
+
+    //delete batch from this model
+    $images = [
+        'filename-1.jpg',
+        'filename-2.jpg',
+        'filename-3.jpg',
+    ];
+    $model->deleteBatchImage($images);
+    
+    
+#  Next Update (not yet implemented)
+
+Implementing single or multi delete on eloquent
+
+    Model::whereNotNull('deleted_at')->deleteImages();
+    
+Implementing multiple thumb image
+
+    [
+        'useThumb' => [   ['w' => 5,
+	                   'h' => 10],
+			  ['w' => 10
+	                   'h' => 20],
+			  ['w' => 20
+	                   'h' => 40],]
+    ]
+    
