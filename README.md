@@ -2,7 +2,11 @@
 
 This trait is dependence of Intervention Image
 
+The goal is the same as the name, only support single image on a model
+
 # in Controller
+
+Basic use is
 
     $model = new Model();
     $model->image   = $request->image;
@@ -11,6 +15,12 @@ This trait is dependence of Intervention Image
         $model->cropper = $request->only('x', 'y', 'w', 'h');
         $model->cropper = [0,0,500,500]; // [x,y,w,h]
     }
+    
+    if ($manualSave) $model->saveImage();
+    
+    $model->save();
+    
+    $model->delete();
 
 # in Model
 These are all available config
