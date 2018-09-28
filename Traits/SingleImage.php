@@ -28,7 +28,6 @@ trait SingleImage
     public static function bootSingleImage()
     {
         static::saving(function($model){
-            $model->prepareImageDir();
             $model->deleteImage();
             $model->saveImage();
         });
@@ -41,7 +40,7 @@ trait SingleImage
     public function defaultSingleImageOptions()
     {
         return [
-            'dir' => $this->defaultDir(), 
+            'dir' => $this->singleImageDir(), 
             'dimensions' => [
                 'default' => [
                     'w' => 500, 
@@ -142,6 +141,8 @@ trait SingleImage
 
     public function doSaveImage($image, $dimension, $folder = null)
     {
+        $this->prepareImageDir();
+
         $image = clone $image;
 
         if (Arr::get($dimension, 'aspectRatio')) {
@@ -206,12 +207,20 @@ trait SingleImage
     {
         $dir = $this->singleImageOptions()->get('dir');
         
-        if (!is_dir($folder = public_path('storage'))) {
-            mkdir($folder);
-        }
+        if (!is_dir(public_path($dir))) {
+            $recursive = explode('/', $dir);
 
-        if (!is_dir($folder = public_path($dir))) {
-            mkdir($folder);
+            $dir = '';
+
+            foreach ($recursive as $folder) {
+                $dir .= $folder;
+
+                if (!is_dir($folder = public_path($dir))) {
+                    mkdir($folder);
+                }   
+
+                $dir .= '/';
+            }
         }
 
         if (count($this->singleImageOptions()->get('dimensions')) > 1) {
@@ -223,7 +232,7 @@ trait SingleImage
         }
     }
 
-    public function defaultDir()
+    public function singleImageDir()
     {
         $array = explode('\\', get_class($this));
 
