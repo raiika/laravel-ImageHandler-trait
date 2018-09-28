@@ -5,7 +5,12 @@ This trait is dependence of Intervention Image
 # in Controller
 
     $model = new Model();
-    $model->image = $request;
+    $model->image   = $request->image;
+    
+    if ($youNeedCropping) {
+        $model->cropper = $request->only('x', 'y', 'w', 'h');
+        $model->cropper = [0,0,500,500]; // [x,y,w,h]
+    }
 
 # in Model
 These are all available config
