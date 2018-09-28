@@ -49,27 +49,27 @@ trait SingleImage
                     'upsize' => true,
                     'aspectRatio' => false,
                 ],
-                'medium' => [
-                    'w' => 500, 
-                    'h' => null,
-                    'upsize' => true,
-                    'aspectRatio' => false,
-                ]
-                'anything' => [
-                    'w' => 500, 
-                    'h' => 500,
-                    'upsize' => true,
-                    'aspectRatio' => false,
-                ]
+                // 'medium' => [
+                //     'w' => 500, 
+                //     'h' => null,
+                //     'upsize' => true,
+                //     'aspectRatio' => false,
+                // ]
+                // 'anything' => [
+                //     'w' => 500, 
+                //     'h' => 500,
+                //     'upsize' => true,
+                //     'aspectRatio' => false,
+                // ]
             ],
-            'dimension' => [
-                'w' => 500, 
-                'h' => 500,
-                'upsize' => true,
-                'aspectRatio' => false,
-            ],
+            // 'dimension' => [
+            //     'w' => 500, 
+            //     'h' => 500,
+            //     'upsize' => true,
+            //     'aspectRatio' => false,
+            // ],
             'column' => 'image',
-            'strict' => true,
+            'strict' => true
         ];
     }
 
