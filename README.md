@@ -55,7 +55,7 @@ in Controller
     $model->deleteImage();
     
     //delete only small and medium image
-    $model->deleteImage('small', 'medium);
+    $model->deleteImage('small', 'medium');
     
 
 # Implementing single or multi delete on eloquent
