@@ -1,4 +1,4 @@
-# laravel-ImageHandler-trait
+# laravel-SingleImage-trait
 
 This trait is dependence of Intervention Image
 
@@ -10,76 +10,114 @@ This trait is dependence of Intervention Image
 # in Model
 These are all available config
 
-    protected $imageHandler = [
-        'dir' => 'images/sliders', 
-        'thumbFolder' => 'thumbs', 
-        'useThumb' => false, 
-        'dimension' => [
-            'w' => 500, 
-            'h' => 200
-        ],
-        'thumbDimension' => [
-            'w' => 400, 
-            'h' => 200
-        ],
-        'ratioVar' => [
-            'x' => 'x',
-            'y' => 'y',
-            'w' => 'w',
-            'h' => 'h',
-        ],
-        'defaultRatio' => [
-            'x' => 0,
-            'y' => 0,
-            'w' => 500,
-            'h' => 500,
-        ],
-        'name' => 'image'
+    protected $singleImage = [
+            'dir' => $this->defaultDir(), 
+            'dimensions' => [
+                'default' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+                'medium' => [
+                    'w' => 500, 
+                    'h' => null,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ]
+                'anything' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ]
+            ],
+            'dimension' => [
+                'w' => 500, 
+                'h' => 500,
+                'upsize' => true,
+                'aspectRatio' => false,
+            ],
+            'column' => 'image',
+            'strict' => true
     ]
 
 #  Renaming setAttribute method
-    use ImageHandler {
-		setImageAttribute as setUniqueAttribute;
-	}
+    use SingleImage {
+        setImageAttribute as setUniqueAttribute;
+    }
 
 #  Deleting Image
 
 in Controller
     
-    //delete both main and thumb (if set)
+    //delete all image
     $model->deleteImage();
     
-    //delete only main
-    $model->deleteMainImage();
+    //delete only small and medium image
+    $model->deleteImage('small', 'medium);
     
-    //delete only thumb
-    $model->deleteThumbImage();
 
-    //delete batch from this model
-    $images = [
-        'filename-1.jpg',
-        'filename-2.jpg',
-        'filename-3.jpg',
-    ];
-    $model->deleteBatchImage($images);
-    
-    
-#  Next Update (not yet implemented)
-
-Implementing single or multi delete on eloquent
+# Implementing single or multi delete on eloquent
 
     Model::whereNotNull('deleted_at')->deleteImages();
-    
-Implementing multiple thumb image
 
-    protected $imageHandler = [
-        'useThumb' => [   
-            ['w' => 5,
-             'h' => 10],
-            ['w' => 10
-             'h' => 20],
-            ['w' => 20
-             'h' => 40],
-        ]
+# Implementing single image
+
+    protected $singleImage = [
+            'dimension' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+            ],
     ];
     
+# Implementing image thumbs
+
+default is a must (it is called when you dont specify what folder u want to use)
+or you could set on key ['dimension'] like the single image above and it automatically moved to ['dimensions']['default']
+
+    protected $singleImage = [
+            'dimensions' => [
+                'default' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+                'medium' => [
+                    'w' => 500, 
+                    'h' => null,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+                'small' => [
+                    'w' => 500, 
+                    'h' => null,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+                'up-to-you' => [
+                    'w' => 500, 
+                    'h' => null,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+            ],
+    ];
+    
+# boot
+
+this is the boot of the trait, it makes the image delete the old one and saved the new one on model save, 
+and also delete the old image when the model is deleted
+    
+        static::saving(function($model){
+            $model->prepareImageDir();
+            $model->deleteImage();
+            $model->saveImage();
+        });
+
+        static::deleting(function($model){
+            $model->deleteImage();
+        });
