@@ -4,8 +4,9 @@ namespace App\Traits;
 
 use Intervention\Image\ImageManager;
 use Illuminate\Support\Facades\File;
-use Illuminate\Http\Request;
-
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
+use App\Libraries\SingleImageSeeker;
 
 /*
 
@@ -14,281 +15,336 @@ in Controller
 $model = new Model();
 $model->image = $request;
 
+or if no need to crop
+
+$model->image = $request->image;
+
 */
 
-trait ImageHandler
+trait SingleImage
 {
-	/* ALL AVAILABLE CONFIG
-	protected $imageHandler = [
-		'dir' => 'images/sliders', 
-		'thumbFolder' => 'thumbs', 
-		'useThumb' => false, 
-		'dimension' => [
-			'w' => 500, 
-			'h' => 200
-		],
-		'thumbDimension' => [
-			'w' => 400, 
-			'h' => 200
-		],
-		'ratioVar' => [
-		 	'x' => 'x',
-		 	'y' => 'y',
-		 	'w' => 'w',
-		 	'h' => 'h',
-		],
-		'defaultRatio' => [
-		 	'x' => 0,
-		 	'y' => 0,
-		 	'w' => 500,
-		 	'h' => 500,
-		],
-		'name' => 'image'
-	]
-	*/
+    protected $singleImageStorage;
 
-	public function setImageAttribute($request)
-	{
-		if (is_file($request)) {
-			$request = new Request(['image' => $request]);
-		}
-
-        $filename = $this->getFilename($request);
-
-		$this->createDir();
-
-		$ratio = $this->getRatio($request);
-		
-		try {
-			if ($this->isUsingThumb()) {
-				$thumbImage = $this->cropThumbImage($request);
-				$this->saveThumbImage($thumbImage, $filename);
-			}
-
-			$image = $this->cropImage($request);
-			$this->saveImage($image, $filename);
-		} catch (Exception $e) {
-			$this->deleteImage($filename);
-			$this->deleteThumbImage($filename);
-			throw new Exception('Error in ImageHandler line 48. Error: ' . $e);
-		}
-
-		$this->attributes['image'] = $filename;
-	}
-
-	public function getThisImage()
-	{
-		return $this->{($imageHandler['name'] ?? 'image')};
-	}
-
-	public function deleteImage($filename = null)
-	{
-		$this->deleteMainImage($filename);
-		
-		if ($this->isUsingThumb()) {
-			$this->deleteThumbImage($filename);
-		}
-	}
-
-	public function deleteBatchImage(array $array)
-	{
-		foreach ($array as $filename) {
-			$this->deleteImage($filename);
-		}
-	}
-
-	public function deleteMainImage($filename = null)
-	{
-		$filename = $filename ?? $this->getThisImage();
-
-        $location = public_path($this->getDir() . "/{$filename}");
-
-        if (File::exists($location)) {
-        	File::delete($location);
-        }
-	}
-
-	public function deleteThumbImage($filename = null)
-	{
-		$filename = $filename ?? $this->getThisImage();
-		
-        $location = public_path($this->getThumbDir() . "/{$filename}");
-
-        if (File::exists($location)) {
-        	File::delete($location);
-        }
-	}
-
-    public function getFilename($request)
+    public static function bootSingleImage()
     {
-    	if (!$request->image) {
-    		throw new Exception('request image is null');
-    	}
+        static::saving(function($model){
+            $model->prepareImageDir();
+            $model->deleteImage();
+            $model->saveImage();
+        });
 
-        $filename = str_random(40) . '.' . $request->image->getClientOriginalExtension();
-        $found    = self::where('image', $filename)->count();
+        static::deleting(function($model){
+            $model->deleteImage();
+        });
+    }
 
-        if ($found !== 0) {
-            return $this->getFilename();
+    public function defaultSingleImageOptions()
+    {
+        return [
+            'dir' => $this->defaultDir(), 
+            'dimensions' => [
+                'default' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ],
+                'medium' => [
+                    'w' => 500, 
+                    'h' => null,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ]
+                'anything' => [
+                    'w' => 500, 
+                    'h' => 500,
+                    'upsize' => true,
+                    'aspectRatio' => false,
+                ]
+            ],
+            'dimension' => [
+                'w' => 500, 
+                'h' => 500,
+                'upsize' => true,
+                'aspectRatio' => false,
+            ],
+            'column' => 'image',
+            'strict' => true,
+        ];
+    }
+
+    public function setImageAttribute($image)
+    {
+        if (!is_file($image)) {
+            if ($this->singleImageOptions()->strict) {
+                throw new Exception('Only file must be inputted here. Or turn off the strict.');
+            } else {
+                $this->singleImageStorage['image'] = null;
+
+                return;
+            }
+        }
+
+        $this->singleImageStorage['image']     = $image;
+        $this->singleImageStorage['imagename'] = $this->getFilename($image);
+
+        return $this;
+    }
+
+    public function setCropperAttribute($crop)
+    {
+        if (Arr::has($crop, 'x') && Arr::has($crop, 'y') && Arr::has($crop, 'w') && Arr::has($crop, 'h')) {
+            $this->singleImageStorage['crop'] = $crop;  
+
+            return $this;          
+        }
+
+        $crop = collect($crop)->flatten();
+
+        $this->singleImageStorage['crop'] = [
+            'x' => $crop[0],
+            'y' => $crop[1],
+            'w' => $crop[2],
+            'h' => $crop[3],
+        ];
+
+        return $this;
+    }
+
+    public function saveImage()
+    {
+        if (!Arr::has($this->singleImageStorage, 'image')) {
+            return;
+        }
+
+        $imageFile = Arr::get($this->singleImageStorage, 'image');
+
+        $manager = new ImageManager();
+        $image   = $manager->make($imageFile);
+
+        if (Arr::has($this->singleImageStorage, 'crop')) {
+            $crop = Arr::get($this->singleImageStorage, 'crop');
+            $image->crop($crop['w'], $crop['h'], $crop['x'], $crop['y']);
+        }
+
+        $this->attributes[$this->singleImageOptions()->get('column')] = $this->singleImageStorage['imagename'];
+
+        if (count($dimension = $this->singleImageOptions()->get('dimensions')) <= 1) {
+            $this->doSaveImage($image, $dimension);
+
+            return;
+        }
+
+        foreach ($this->singleImageOptions()->get('dimensions') as $folder => $dimension) {
+            $this->doSaveImage($image, $dimension, $folder);
+        }
+    }
+
+    public function doSaveImage($image, $dimension, $folder = null)
+    {
+        $image = clone $image;
+
+        if (Arr::get($dimension, 'aspectRatio')) {
+            $image->resize(Arr::get($dimension, 'w'), Arr::get($dimension, 'h'), function ($constraint) use ($dimension) {
+                $constraint->aspectRatio();
+                if (Arr::get($dimension, 'upsize')) {
+                    $constraint->upsize();
+                }
+            });
+        } else {
+            $image->fit(Arr::get($dimension, 'w'), Arr::get($dimension, 'h'), function ($constraint) use ($dimension) {
+                if (Arr::get($dimension, 'upsize')) {
+                    $constraint->upsize();
+                }
+            });
+        }
+
+        $filename = $this->singleImageStorage['imagename'];
+
+        if ($folder) {
+            $location = public_path($this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}");
+        } else {
+            $location = public_path($this->singleImageOptions()->get('dir') . "/{$filename}");
+        }
+        
+        $image->save($location);
+    }
+
+    public function getFilename($image)
+    {
+        $extension = $this->guessImageExtension($image);
+
+        $filename = str_random(40) . $extension;
+
+        $found    = self::query()->where($this->singleImageOptions()->get('column'), $filename)->exists();
+
+        if ($found) {
+            return $this->getFilename($image);
         }
 
         return $filename;
     }
 
-	public function saveImage($image, $filename)
-	{
-        $location = public_path($this->getDir() . "/{$filename}");
-		return $image->save($location);
-	}
+    public function guessImageExtension($image)
+    {
+        switch ($image->getClientOriginalExtension()) {
+          case 'image/gif':
+            return '.gif';
+            break;
 
-	public function saveThumbImage($image, $filename)
-	{
-        $location = public_path($this->getThumbDir() . "/{$filename}");
-		return $image->save($location);
-	}
+          case 'image/png':
+            return '.png';
+            break;
 
-	public function makeImageObject($request)
-	{
-		$manager = new ImageManager();
-        $image   = $manager->make($request->image);
+          default:
+            return '.jpg';
+            break;
+        }
+    }
+
+    public function prepareImageDir()
+    {
+        $dir = $this->singleImageOptions()->get('dir');
         
-        $ratio = $this->getRatio($request);
-
-        if (isset($ratio['w']) && isset($ratio['h']) && isset($ratio['x']) && isset($ratio['y'])) {
-        	$image->crop($ratio['w'], $ratio['h'], $ratio['x'], $ratio['y']);
-    	}
-
-        return $image;
-	}
-
-    public function cropImage($request)
-    {
-    	$image = $this->makeImageObject($request);
-
-        $dimension = $this->getDimension();
-
-        $image->fit($dimension['w'], $dimension['h'], function ($constraint) {
-            $constraint->upsize();
-        });
-
-        return $image;
-    }
-
-    public function cropThumbImage($request)
-    {
-    	$image = $this->makeImageObject($request);
-    	
-        $thumbDimension = $this->getThumbDimension();
-
-        $image->fit($this->thumbDimension[0], $this->thumbDimension[1], function ($constraint) {
-            $constraint->upsize();
-        });
-
-        return $image;
-    }
-
-	public function getRatio($request)
-	{
-		return [
-			'x' => $request->{$this->getVarX()} ?? $this->getX(),
-			'y' => $request->{$this->getVarY()} ?? $this->getY(),
-			'w' => $request->{$this->getVarW()} ?? $this->getW(),
-			'h' => $request->{$this->getVarH()} ?? $this->getH(),
-		];
-	}
-
-	public function getX()
-	{
-		return $this->imageHandler['defaultRatio']['x'] ?? null;
-	}
-
-	public function getY()
-	{
-		return $this->imageHandler['defaultRatio']['y'] ?? null;
-	}
-
-	public function getW()
-	{
-		return $this->imageHandler['defaultRatio']['w'] ?? null;
-	}
-
-	public function getH()
-	{
-		return $this->imageHandler['defaultRatio']['h'] ?? null;
-	}
-
-	public function getVarX()
-	{
-		return $this->imageHandler['ratioVar']['x'] ?? 'x';
-	}
-
-	public function getVarY()
-	{
-		return $this->imageHandler['ratioVar']['y'] ?? 'y';
-	}
-
-	public function getVarW()
-	{
-		return $this->imageHandler['ratioVar']['w'] ?? 'w';
-	}
-
-	public function getVarH()
-	{
-		return $this->imageHandler['ratioVar']['h'] ?? 'h';
-	}
-
-    public function createDir()
-    {
-        $dir  = $this->getDir();
-
-        if (!is_dir(public_path($dir))) {
-            mkdir(public_path($dir));
+        if (!is_dir($folder = public_path('storage'))) {
+            mkdir($folder);
         }
 
-        if ($this->isUsingThumb()) {
-            $thumbDir = $this->getThumbDir();
-            if (!is_dir(public_path($thumbDir))) {
-                mkdir(public_path($thumbDir));
+        if (!is_dir($folder = public_path($dir))) {
+            mkdir($folder);
+        }
+
+        if (count($this->singleImageOptions()->get('dimensions')) > 1) {
+            foreach ($this->singleImageOptions()->get('dimensions') as $folder => $dimension) {
+                if (!is_dir($folder = public_path($dir . '/' . $folder))) {
+                    mkdir($folder);
+                }
             }
         }
     }
 
-    public function getDefaultDimension()
+    public function defaultDir()
     {
-    	return [
-			'w' => 500, 
-			'h' => 500
-		];
+        $array = explode('\\', get_class($this));
+
+        return 'storage/' . strtolower(end($array)) . 's';
     }
 
-    public function getDimension()
+    public function scopeDeleteImages($query)
     {
-    	return $this->imageHandler['dimension'] ?? $this->getDefaultDimension();
+        return $query->get()->each(function ($model) {
+            $model->deleteImage();
+        });
     }
 
-    public function getThumbDimension()
+    public function deleteImage($folder = null)
     {
-    	return $this->imageHandler['thumbDimension'] ?? $this->getDefaultDimension();
+        if (!isset($this->attributes[$this->singleImageOptions()->get('column')])) {
+            return ;
+        }
+        
+        $filename = $this->attributes[$this->singleImageOptions()->get('column')];
+        
+        if (is_string($folder)) {
+            $folders = func_get_args();
+
+            foreach ($folders as $folder) {
+                $location = public_path($this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}");
+                
+                if (File::exists($location)) {
+                    File::delete($location);
+                }
+            }
+
+            return ;
+        }
+
+        if (count($this->singleImageOptions()->get('dimensions')) > 1) {
+            foreach ($this->singleImageOptions()->get('dimensions') as $folder => $dimension) {
+                $location = public_path($this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}");
+                
+                if (File::exists($location)) {
+                    File::delete($location);
+                }
+            }
+
+            return ;
+        }
+
+        $location = public_path($this->singleImageOptions()->get('dir') . "/{$filename}");
+        
+        if (File::exists($location)) {
+            File::delete($location);
+        }
     }
 
-    public function getDir()
+    public function getImageAttribute()
     {
-    	$array = explode('\\', get_class($this));
-    	return $this->imageHandler['dir'] ?? 'images/' . strtolower(end($array)) . 's';
+        return new SingleImageSeeker($this);
     }
 
-    public function getThumbDir()
+    public function singleImageOptions()
     {
-    	return $this->getDir() . '/' . $this->getThumbFolder();
+        if (!$this->singleImage instanceof Collection) {
+            $default = collect($this->defaultSingleImageOptions());
+
+            $options = collect($this->singleImage);
+
+            if ($options->get('dimension') !== null) {
+                $dimensions = collect($options->get('dimensions'));
+                $dimensions->put('default', $options->get('dimension'));
+                $options->put('dimensions', $dimensions);
+                $options->forget('dimension');
+            }
+            
+            $this->singleImage = $default->merge($options);
+        }
+
+        return $this->singleImage;
     }
 
-    public function getThumbFolder()
+    public function getImage($folder = null, $string = 'default')
     {
-    	return $this->imageHandler['thumbFolder'] ?? 'thumbs';
-    }
+        if (!$folder) {
+            $folder = 'default';
+        }
 
-    public function isUsingThumb()
-    {
-    	return $this->imageHandler['useThumb'] ?? false;
+        if (isset($this->attributes[$this->singleImageOptions()->get('column')])) {
+            $filename = $this->attributes[$this->singleImageOptions()->get('column')];
+            
+            if (count($this->singleImageOptions()->get('dimensions')) > 1) {
+                $location = $this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}";
+                
+                if (File::exists(public_path($location))) {
+                    return asset($location);
+                }
+            } else {
+                $location = $this->singleImageOptions()->get('dir') . "/{$filename}";
+                
+                if (File::exists(public_path($location))) {
+                    return asset($location);
+                }
+            }
+        }
+
+        $dimension = $this->singleImageOptions()->get('dimensions')[$folder];
+
+        if (Arr::get($dimension, $folder . '.w')) {
+            $dimension['w'] = $dimension['h'];
+        } elseif (Arr::get($dimension, $folder . '.h')) {
+            $dimension['h'] = $dimension['w'];
+        }
+        
+        $textDimension = implode('x', Arr::only($dimension, ['w', 'h']));
+
+        $result = "https://via.placeholder.com/{$textDimension}?text=";
+
+        if ($string === 'default') {
+            return $result .= $textDimension;
+        } elseif ($string !== null) {
+            return $result .= $string;
+        }
+
+        return null;
     }
 }
