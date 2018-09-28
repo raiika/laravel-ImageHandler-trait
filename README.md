@@ -18,9 +18,9 @@ Basic use is
     
     if ($manualSave) $model->saveImage();
     
-    $model->save();
+    $model->save(); // trigger auto saving
     
-    $model->delete();
+    $model->delete(); // trigger auto deleting
 
 # in Model
 These are all available config
