@@ -128,7 +128,6 @@ this is the boot of the trait, it makes the image delete the old one and saved t
 and also delete the old image when the model is deleted
     
         static::saving(function($model){
-            $model->prepareImageDir();
             $model->deleteImage();
             $model->saveImage();
         });
