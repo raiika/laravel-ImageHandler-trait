@@ -4,6 +4,8 @@ This trait is dependence of Intervention Image
 
 The goal is the same as the name, only support single image on a model
 
+If there is a multiple image, it should be one to many, thus implement this trait on the many image Model
+
 # in Controller
 
 Basic use is
