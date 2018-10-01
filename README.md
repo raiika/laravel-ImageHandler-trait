@@ -90,7 +90,7 @@ in Controller
             ],
     ];
     
-# Implementing image thumbs
+# Implementing many image dimension (for thumb)
 
 default is a must (it is called when you dont specify what folder u want to use)
 or you could set on key ['dimension'] like the single image above and it automatically moved to ['dimensions']['default']
