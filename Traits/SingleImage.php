@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use App\Libraries\SingleImageSeeker;
+use Exception;
 
 /*
 
@@ -28,8 +29,10 @@ trait SingleImage
     public static function bootSingleImage()
     {
         static::saving(function($model){
-            $model->deleteImage();
-            $model->saveImage();
+            if (isset($model->singleImageStorage['image'])) {
+                $model->deleteImage();
+                $model->saveImage();
+            }
         });
 
         static::deleting(function($model){
@@ -53,7 +56,7 @@ trait SingleImage
                 //     'h' => null,
                 //     'upsize' => true,
                 //     'aspectRatio' => false,
-                // ]
+                // ],
                 // 'anything' => [
                 //     'w' => 500, 
                 //     'h' => 500,
@@ -68,16 +71,21 @@ trait SingleImage
             //     'aspectRatio' => false,
             // ],
             'column' => 'image',
-            'strict' => true
+            'strict' => false,
+            'disablePlaceholder' => false
         ];
     }
 
     public function setImageAttribute($image)
     {
         if (!is_file($image)) {
-            if ($this->singleImageOptions()->strict) {
+            if ($this->singleImageOptions()->get('strict')) {
                 throw new Exception('Only file must be inputted here. Or turn off the strict.');
             } else {
+                if (is_string($image)) {
+                    $this->attributes[$this->singleImageOptions()->get('column')] = $image;
+                }
+
                 $this->singleImageStorage['image'] = null;
 
                 return;
@@ -85,7 +93,7 @@ trait SingleImage
         }
 
         $this->singleImageStorage['image']     = $image;
-        $this->singleImageStorage['imagename'] = $this->getFilename($image);
+        $this->singleImageStorage['imagename'] = $this->generateUniqueImageName($image);
 
         return $this;
     }
@@ -145,6 +153,12 @@ trait SingleImage
 
         $image = clone $image;
 
+        if (!$folder) {
+            $folder = 'default';
+        }
+
+        $dimension = isset($dimension[$folder]) ? $dimension[$folder] : $dimension;
+
         if (Arr::get($dimension, 'aspectRatio')) {
             $image->resize(Arr::get($dimension, 'w'), Arr::get($dimension, 'h'), function ($constraint) use ($dimension) {
                 $constraint->aspectRatio();
@@ -162,16 +176,16 @@ trait SingleImage
 
         $filename = $this->singleImageStorage['imagename'];
 
-        if ($folder) {
-            $location = public_path($this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}");
-        } else {
+        if (count($this->singleImageOptions()->get('dimensions')) <= 1) {
             $location = public_path($this->singleImageOptions()->get('dir') . "/{$filename}");
+        } else {
+            $location = public_path($this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}");
         }
         
         $image->save($location);
     }
 
-    public function getFilename($image)
+    public function generateUniqueImageName($image)
     {
         $extension = $this->guessImageExtension($image);
 
@@ -180,7 +194,7 @@ trait SingleImage
         $found    = self::query()->where($this->singleImageOptions()->get('column'), $filename)->exists();
 
         if ($found) {
-            return $this->getFilename($image);
+            return $this->generateUniqueImageName($image);
         }
 
         return $filename;
@@ -189,11 +203,11 @@ trait SingleImage
     public function guessImageExtension($image)
     {
         switch ($image->getClientOriginalExtension()) {
-          case 'image/gif':
+          case 'gif':
             return '.gif';
             break;
 
-          case 'image/png':
+          case 'png':
             return '.png';
             break;
 
@@ -320,7 +334,7 @@ trait SingleImage
 
         if (isset($this->attributes[$this->singleImageOptions()->get('column')])) {
             $filename = $this->attributes[$this->singleImageOptions()->get('column')];
-            
+
             if (count($this->singleImageOptions()->get('dimensions')) > 1) {
                 $location = $this->singleImageOptions()->get('dir') . '/' . $folder . "/{$filename}";
                 
@@ -336,11 +350,15 @@ trait SingleImage
             }
         }
 
+        if ($this->singleImageOptions()->get('disablePlaceholder')) {
+            return $string;
+        }
+
         $dimension = $this->singleImageOptions()->get('dimensions')[$folder];
 
-        if (Arr::get($dimension, $folder . '.w')) {
+        if (!isset($dimension['w'])) {
             $dimension['w'] = $dimension['h'];
-        } elseif (Arr::get($dimension, $folder . '.h')) {
+        } elseif (!isset($dimension['h'])) {
             $dimension['h'] = $dimension['w'];
         }
         
