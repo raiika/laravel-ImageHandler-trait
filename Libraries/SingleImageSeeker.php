@@ -2,9 +2,11 @@
 
 namespace App\Libraries;
 
-use \JsonSerializable;
+use JsonSerializable;
+use Illuminate\Contracts\Support\Jsonable;
+use Illuminate\Contracts\Support\Arrayable;
 
-class SingleImageSeeker implements JsonSerializable
+class SingleImageSeeker implements JsonSerializable, Jsonable, Arrayable
 {
     protected $model;
     protected $folder = null;
@@ -15,29 +17,54 @@ class SingleImageSeeker implements JsonSerializable
         $this->model = $model;
     }
 
-    public function type($folder){
+    public function type($folder)
+    {
         $this->folder = $folder;
         
         return $this;
     }
 
-    public function or($string){
+    public function or($string)
+    {
         $this->string = $string;
         
         return $this;
     }
 
-    public function orDefault(){
+    public function orDefault()
+    {
         $this->string = 'default';
         
         return $this;
     }
 
-    public function __toString(){
-    	return $this->model->getImage($this->folder, $this->string);
-	}
+    public function exists()
+    {
+        return $this->or(null)->__toString() !== null;
+    }
 
-    public function jsonSerialize() {
+    public function get()
+    {
+        return $this->__toString();
+    }
+
+    public function __toString()
+    {
+        return $this->model->getImage($this->folder, $this->string);
+    }
+
+    public function jsonSerialize()
+    {
         return self::__toString();
+    }
+
+    public function toJson($options = 0)
+    {
+        return self::__toString();
+    }
+
+    public function toArray()
+    {
+        return self::__toString();   
     }
 }
