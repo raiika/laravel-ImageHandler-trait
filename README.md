@@ -56,26 +56,34 @@ These are all available config
                 'aspectRatio' => false,
             ],
             'column' => 'image',
-            'strict' => true
+            'strict' => false,
+            'disablePlaceholder' => false
     ]
 
-#  Renaming setAttribute method
+#  Renaming default getAttribute method
     use SingleImage {
-        setImageAttribute as setUniqueAttribute;
+        getImageAttribute as getUniqueAttribute;
+    }
+    
+    public function getImageAttribute()
+    {
+        return $this->getUniqueAttribute()->type('big')->or(null);
     }
 
 #  Deleting Image
 
 in Controller
     
-    //delete all image
+    //by default, the trait will delete the image on model delete
+    $model->delete();
+    
+    //if you wants to delete manually all image
     $model->deleteImage();
     
     //delete only small and medium image
     $model->deleteImage('small', 'medium');
-    
 
-# Implementing single or multi delete on eloquent
+# Implementing single or multi delete on query builder
 
     Model::whereNotNull('deleted_at')->deleteImages();
 
