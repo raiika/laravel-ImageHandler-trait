@@ -1,10 +1,8 @@
-# laravel-SingleImage-trait
+# laravel-SingleImage
 
 This trait is dependence of Intervention Image
 
 The goal is the same as the name, only support single image on a model
-
-If there is a multiple image, it should be one to many, thus implement this trait on the many image Model
 
 # in Controller
 
@@ -13,16 +11,16 @@ Basic use is
     $model = new Model();
     $model->image   = $request->image;
     
-    if ($youNeedCropping) {
+    if ($needsCropping) {
         $model->cropper = $request->only('x', 'y', 'w', 'h');
         $model->cropper = [0,0,500,500]; // [x,y,w,h]
     }
     
     if ($manualSave) $model->saveImage();
     
-    $model->save(); // trigger auto saving
+    $model->save(); // trigger auto image saving
     
-    $model->delete(); // trigger auto deleting
+    $model->delete(); // trigger auto image deleting
 
 # in Model
 These are all available config
@@ -49,26 +47,19 @@ These are all available config
                     'aspectRatio' => false,
                 ]
             ],
+
+            // if wants single dimension use below for readability
             'dimension' => [
                 'w' => 500, 
                 'h' => 500,
                 'upsize' => true,
                 'aspectRatio' => false,
             ],
+
             'column' => 'image',
             'strict' => false,
             'disablePlaceholder' => false
     ]
-
-#  Renaming default getAttribute method
-    use SingleImage {
-        getImageAttribute as getUniqueAttribute;
-    }
-    
-    public function getImageAttribute()
-    {
-        return $this->getUniqueAttribute()->type('big')->or(null);
-    }
 
 #  Deleting Image
 
