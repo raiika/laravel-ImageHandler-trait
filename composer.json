@@ -18,9 +18,6 @@
     "require-dev": {
         "phpunit/phpunit": "6.0.*|8.0.*"
     },
-    "suggest": {
-        "ext-intl": "*"
-    },
     "autoload": {
         "classmap": [
         ],
